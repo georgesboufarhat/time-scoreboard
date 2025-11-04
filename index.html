@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TIME Practice — Managers Scoreboard</title>
+<style>
+  :root{
+    --bg1:#0b1020; --bg2:#151a30; --accent:#7c9cff; --text:#e6e8f3; --muted:#9aa3b2;
+    --card:#12172a; --bar:#2a3352; --barHighlight:#5b6ae6;
+  }
+  html,body{height:100%;}
+  body{
+    margin:0; font-family: Segoe UI, Roboto, system-ui, -apple-system, Arial, sans-serif; color:var(--text);
+    background: radial-gradient(1200px 700px at 20% -10%, rgba(255,255,255,0.06), transparent 70%),
+                radial-gradient(900px 600px at 100% 0%, rgba(255,255,255,0.06), transparent 70%),
+                linear-gradient(120deg, var(--bg1), var(--bg2));
+    overflow-x:hidden;
+  }
+  .wrap{max-width:1100px; margin:0 auto; padding:24px 20px 28px;}
+  header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px;}
+  .title{display:flex; align-items:center; gap:12px;}
+  .badge{width:38px; height:38px; border-radius:12px; display:grid; place-items:center;
+         background:linear-gradient(135deg,#ff9d00,#ffd56a); color:#000; font-weight:700;
+         box-shadow:0 6px 18px rgba(255,149,0,0.35);}
+  h1{margin:0; font-size:clamp(20px,3.5vw,30px); letter-spacing:.2px; font-weight:700;}
+  .subtitle{color:var(--muted); font-size:13.5px; margin-top:2px;}
+  .toggle{background:var(--card); border:1px solid #2b3352aa; border-radius:14px; padding:4px; display:inline-flex; gap:4px;}
+  .toggle button{border:0; background:transparent; color:var(--muted); padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:600;}
+  .toggle button.active{color:#0b1020; background:linear-gradient(135deg,var(--accent),#9eb6ff); box-shadow:0 6px 16px rgba(124,156,255,0.35);}
+  .board{margin-top:12px; border:1px solid rgba(255,255,255,0.06); border-radius:16px; padding:14px; background:rgba(255,255,255,.02);}
+  .row{display:grid; grid-template-columns:44px 1fr 120px; align-items:center; gap:12px; padding:10px; margin:8px 0; border-radius:12px; background:rgba(255,255,255,.04);}
+  .rank{width:44px; height:44px; border-radius:10px; display:grid; place-items:center; font-weight:800; color:#0b1020;
+        background:linear-gradient(135deg,#ffd56a,#fff1b1); box-shadow:0 6px 16px rgba(255,205,90,0.35);}
+  .rank.r2{background:linear-gradient(135deg,#d3dfe7,#f3f6f9);}
+  .rank.r3{background:linear-gradient(135deg,#d9b7a0,#f0d5c4);}
+  .name{font-weight:700; letter-spacing:.2px; font-size:16px; margin-bottom:6px; display:flex; align-items:center; gap:8px;}
+  .flame{width:26px; height:26px; display:grid; place-items:center; filter:drop-shadow(0 0 6px rgba(255,130,0,.55));
+         animation: flameBob 1.8s ease-in-out infinite, flameGlow 1.2s ease-in-out infinite alternate;}
+  @keyframes flameBob{0%{transform:translateY(0)}50%{transform:translateY(-2px)}100%{transform:translateY(0)}}
+  @keyframes flameGlow{0%{filter:drop-shadow(0 0 6px rgba(255,130,0,.55))}100%{filter:drop-shadow(0 0 14px rgba(255,170,0,.95))}}
+  .confetti{font-size:22px; line-height:1; animation: confettiPop 1.6s ease-in-out infinite; filter:drop-shadow(0 0 6px rgba(255,200,80,.55));}
+  @keyframes confettiPop{0%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-3px) rotate(12deg)}100%{transform:translateY(0) rotate(0deg)}}
+  .bar-wrap{position:relative; background:#2a3352; border-radius:10px; height:14px; outline:1px solid rgba(255,255,255,0.06); overflow:hidden;}
+  .bar{position:absolute; left:0; top:0; bottom:0; width:0%; background:linear-gradient(90deg,#5b6ae6,#6fc7ff); transition:width 900ms cubic-bezier(.2,.7,.1,1);}
+  .value{text-align:right; font-variant-numeric:tabular-nums; font-weight:700;}
+  .unit{color:var(--muted); font-weight:600; font-size:12px; margin-left:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">
+      <div class="badge">🔥</div>
+      <div>
+        <h1>TIME Practice — Managers Scoreboard</h1>
+        <div class="subtitle">Toggle between <strong>Projects</strong> and <strong>Hours</strong>. Edit the data inside this file.</div>
+      </div>
+    </div>
+    <div class="toggle" role="tablist" aria-label="Metric toggle">
+      <button id="btnProjects" class="active" role="tab" aria-selected="true">Projects</button>
+      <button id="btnHours" role="tab" aria-selected="false">Hours</button>
+    </div>
+  </header>
+  <section class="board" id="board" aria-live="polite"></section>
+</div>
+
+<script>
+// ====== EDIT YOUR DATA HERE (4–5 managers) ======
+const DATA = [
+  { manager: "Manager A", projects: 6,  hours: 180 },
+  { manager: "Manager B", projects: 4,  hours: 120 },
+  { manager: "Manager C", projects: 9,  hours: 260 },
+  { manager: "Manager D", projects: 3,  hours:  90 },
+  // { manager: "Manager E", projects: 2,  hours:  60 }, // optional 5th
+];
+// ================================================
+
+const state = { metric: "projects" };
+const board = document.getElementById("board");
+const btnProjects = document.getElementById("btnProjects");
+const btnHours = document.getElementById("btnHours");
+
+function fmt(v, metric){
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(v) + (metric==="hours"?"h":"");
+}
+
+function render(){
+  const metric = state.metric;
+  const arr = [...DATA].sort((a,b)=> (b[metric]??0) - (a[metric]??0));
+  const maxVal = Math.max(1, ...arr.map(d=> d[metric]??0));
+  board.innerHTML = "";
+  arr.forEach((d,i)=>{
+    const row = document.createElement("div"); row.className="row";
+    const rank = document.createElement("div"); rank.className = "rank " + (i===1?"r2": i===2?"r3":""); rank.textContent = (i+1);
+
+    const center = document.createElement("div");
+    const name = document.createElement("div"); name.className="name"; name.textContent = d.manager;
+    if(i===0){
+      const flame=document.createElement("span"); flame.className="flame"; flame.textContent="🔥"; name.appendChild(flame);
+      const conf=document.createElement("span"); conf.className="confetti"; conf.textContent="🎉"; name.appendChild(conf);
+    }
+    const barWrap = document.createElement("div"); barWrap.className="bar-wrap";
+    const bar = document.createElement("div"); bar.className="bar"; bar.style.width = "0%";
+    requestAnimationFrame(()=>{ bar.style.width = Math.max(0, Math.min(100, (d[metric]/maxVal)*100 )) + "%"; });
+    barWrap.appendChild(bar); center.appendChild(name); center.appendChild(barWrap);
+
+    const val = document.createElement("div"); val.className="value";
+    val.innerHTML = fmt(d[metric], metric) + ' <span class="unit">' + (metric==="hours"?"hours":"projects") + '</span>';
+
+    row.appendChild(rank); row.appendChild(center); row.appendChild(val);
